@@ -53,6 +53,12 @@ func (gr *gostmanRuntime) initOnce() {
 			log.Fatal(err)
 		}
 
+		// check reset
+		if gr.flagReset {
+			gr.reset()
+			gr.populate()
+		}
+
 		// check env
 		env := gr.runtime.Env
 		if gr.flagSetenv != "" {
@@ -121,6 +127,13 @@ func (gr *gostmanRuntime) loadRuntime() error {
 	return nil
 }
 
+// reset resets runtime initial and current value
+func (gr *gostmanRuntime) reset() {
+	gr.runtime.Env = ""
+	gr.runtime.Initial = nil
+	gr.runtime.Current = nil
+}
+
 // populate populates runtime initial and current value using env
 func (gr *gostmanRuntime) populate() {
 	if gr.runtime.Env == "" {
@@ -142,6 +155,18 @@ func (gr *gostmanRuntime) populate() {
 		for k, v := range values {
 			if rv, ok := gr.runtime.Initial[env][k]; !ok || rv != v {
 				gr.runtime.Initial[env][k] = v
+				gr.runtime.Current[env][k] = v
+			}
+		}
+	}
+
+	for env, values := range gr.runtime.Initial {
+		if _, ok := gr.runtime.Current[env]; !ok {
+			gr.runtime.Current[env] = make(map[string]string)
+		}
+
+		for k, v := range values {
+			if _, ok := gr.runtime.Current[env][k]; !ok {
 				gr.runtime.Current[env][k] = v
 			}
 		}
