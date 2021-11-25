@@ -21,9 +21,10 @@ type gostmanRuntime struct {
 	once sync.Once
 	g    map[string]*Gostman
 
-	flagEnv   string
-	flagReset bool
-	flagDebug bool
+	flagEnv    string
+	flagSetenv string
+	flagReset  bool
+	flagDebug  bool
 
 	env     map[string]map[string]string
 	runtime struct {
@@ -34,7 +35,8 @@ type gostmanRuntime struct {
 }
 
 func init() {
-	flag.StringVar(&gostman.flagEnv, "env", "", "Selected environment define in .gostman.env.yml")
+	flag.StringVar(&gostman.flagEnv, "env", "", "Select environment define in .gostman.env.yml")
+	flag.StringVar(&gostman.flagSetenv, "setenv", "", "Select environment define in .gostman.env.yml and set it for the future request")
 	flag.BoolVar(&gostman.flagReset, "reset", false, "Reset .gostman.runtime.yml")
 	flag.BoolVar(&gostman.flagDebug, "debug", false, "Run gostman in debug mode")
 }
@@ -52,10 +54,15 @@ func (gr *gostmanRuntime) initOnce() {
 		}
 
 		// check env
-		if gr.flagEnv == "" {
-			gr.flagEnv = gr.runtime.Env
+		env := gr.runtime.Env
+		if gr.flagSetenv != "" {
+			gr.runtime.Env = gr.flagSetenv
+			env = gr.flagSetenv
 		}
-		log.Infof("using env %q", gr.flagEnv)
+		if gr.flagEnv != "" {
+			env = gr.flagEnv
+		}
+		log.Infof("using env %q", env)
 	})
 }
 
