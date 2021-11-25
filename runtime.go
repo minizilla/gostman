@@ -45,6 +45,8 @@ func (gr *gostmanRuntime) initOnce() {
 		if gr.flagEnv == "" {
 			gr.flagEnv = gr.runtime.Env
 		}
+
+		log.Infof("using env %q", gr.flagEnv)
 	})
 }
 
@@ -80,36 +82,25 @@ func (gr *gostmanRuntime) loadRuntime() error {
 	defer f.Close()
 
 	if err := yaml.NewDecoder(f).Decode(&gr.runtime); err != nil {
-		gr.reset()
-		return nil
+		log.Debug(err)
 	}
 
 	gr.populate()
 	return nil
 }
 
-// reset resets runtime initial and current value using env
-func (gr *gostmanRuntime) reset() {
-	gr.runtime.Env = defaultEnv
-	gr.runtime.Initial = make(map[string]map[string]string)
-	gr.runtime.Current = make(map[string]map[string]string)
-
-	for env, values := range gr.env {
-		initial := make(map[string]string)
-		current := make(map[string]string)
-
-		for k, v := range values {
-			initial[k] = v
-			current[k] = v
-		}
-
-		gr.runtime.Initial[env] = initial
-		gr.runtime.Current[env] = current
-	}
-}
-
 // populate populates runtime initial and current value using env
 func (gr *gostmanRuntime) populate() {
+	if gr.runtime.Env == "" {
+		gr.runtime.Env = defaultEnv
+	}
+	if gr.runtime.Initial == nil {
+		gr.runtime.Initial = make(map[string]map[string]string)
+	}
+	if gr.runtime.Current == nil {
+		gr.runtime.Current = make(map[string]map[string]string)
+	}
+
 	for env, values := range gr.env {
 		if _, ok := gr.runtime.Initial[env]; !ok {
 			gr.runtime.Initial[env] = make(map[string]string)
