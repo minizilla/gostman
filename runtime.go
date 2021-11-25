@@ -1,7 +1,9 @@
 package gostman
 
 import (
+	"errors"
 	"flag"
+	"io"
 	"os"
 	"sync"
 
@@ -67,11 +69,25 @@ func (gr *gostmanRuntime) init() error {
 func (gr *gostmanRuntime) loadEnv() error {
 	f, err := os.Open(envFilename)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			log.Debug(err)
+			gr.env = make(map[string]map[string]string)
+			return nil
+		}
 		return err
 	}
 	defer f.Close()
 
-	return yaml.NewDecoder(f).Decode(&gr.env)
+	if err := yaml.NewDecoder(f).Decode(&gr.env); err != nil {
+		if errors.Is(err, io.EOF) {
+			log.Debug(err)
+			gr.env = make(map[string]map[string]string)
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }
 
 func (gr *gostmanRuntime) loadRuntime() error {
