@@ -21,18 +21,19 @@ type Request struct {
 }
 
 // Send sends a request. The testing can be done inside f.
-func (r *Request) Send(f func(t *testing.T, res *http.Response)) {
+func (r *Request) Send(f func(t *testing.T, req *http.Request, res *http.Response)) {
 	url := r.url + "?" + r.params.Encode()
 	req, err := http.NewRequest(r.method, url, r.body)
 	if err != nil {
 		log.Fatal(err)
 	}
 	req.Header = r.headers
+	req.Header.Set("Host", req.URL.Host)
 
 	res, err := r.client.Do(req)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	f(r.t, res)
+	f(r.t, req, res)
 }
