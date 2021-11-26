@@ -117,12 +117,12 @@ func TestRequest(t *testing.T) {
 
 // TestVariable tests request to postman-echo with variable.
 //
-//  Set env: go test -run Request -env postman
-//  Set env for the future request too: go test -run Request -setenv postman
+//  Set env: go test -run Variable -env postman
+//  Set env for the future request too: go test -run Variable -setenv postman
 func TestVariable(t *testing.T) {
 	gm := gostman.New(t)
 
-	// go test -run Request/Authorization -env postman
+	// go test -run Variable/Authorization -env postman
 	gm.GET("Authorization", "https://postman-echo.com/basic-auth", func(r *gostman.Request) {
 		r.Authorization(gostman.AuthBasic(
 			gm.V("username"),
