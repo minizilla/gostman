@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Request contains all necessary thing to create a Gostman request.
 type Request struct {
 	t       *testing.T
 	client  http.Client
@@ -47,6 +48,7 @@ func (r *Request) Body(body io.Reader, contentType string, contentLength int) {
 	r.headers.Set("Content-Length", strconv.Itoa(contentLength))
 }
 
+// Send sends a request. The testing can be done inside f.
 func (r *Request) Send(f func(t *testing.T, res *http.Response)) {
 	url := r.url + "?" + r.params.Encode()
 	req, err := http.NewRequest(r.method, url, r.body)
