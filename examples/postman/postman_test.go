@@ -13,8 +13,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/billyzaelani/is"
 	"github.com/injustease/gostman"
+	"github.com/injustease/is"
 )
 
 type postmanResponse struct {
