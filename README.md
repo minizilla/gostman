@@ -100,7 +100,7 @@ import (
     "os"
     "testing"
 
-    "github.com/billyzaelani/is"
+    "github.com/injustease/is"
     "github.com/injustease/gostman"
 )
 
