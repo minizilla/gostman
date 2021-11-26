@@ -5,10 +5,18 @@ import (
 	"encoding/json"
 	"io"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 )
+
+// Body sets request body.
+func (r *Request) Body(body io.Reader, contentType string, contentLength int) {
+	r.body = body
+	r.headers.Set("Content-Type", contentType)
+	r.headers.Set("Content-Length", strconv.Itoa(contentLength))
+}
 
 // BodyJSON creates request body by marshaling v using JSON.
 // Returns io.Reader, Content-Type of application/json, and its length.
