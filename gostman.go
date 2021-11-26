@@ -8,25 +8,17 @@ import (
 	"testing"
 )
 
-var (
-	//go:embed VERSION
-	gostmanVersion string
-	gostman        gostmanRuntime
-)
+//go:embed VERSION
+var gostmanVersion string
 
 type Gostman struct {
 	t *testing.T
 }
 
 func New(t *testing.T) *Gostman {
-	gostman.initOnce()
-
-	gm := &Gostman{
+	return &Gostman{
 		t: t,
 	}
-
-	gostman.g[t.Name()] = gm
-	return gm
 }
 
 func (gm *Gostman) AddRequest(name, method, url string, fn func(*Request)) {
@@ -67,4 +59,12 @@ func (gm *Gostman) HEAD(name, url string, fn func(*Request)) {
 
 func (gm *Gostman) OPTIONS(name, url string, fn func(*Request)) {
 	gm.AddRequest(name, http.MethodOptions, url, fn)
+}
+
+func (gm *Gostman) SetV(name, val string) {
+	runtime.setEnvVar(name, val)
+}
+
+func (gm *Gostman) V(name string) string {
+	return runtime.envVar(name)
 }

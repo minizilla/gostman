@@ -6,10 +6,18 @@ import (
 	"io"
 	"os"
 	"sync"
+	"testing"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
+
+func init() {
+	flag.StringVar(&runtime.flagEnv, "env", "", "Select environment define in .gostman.env.yml")
+	flag.StringVar(&runtime.flagSetenv, "setenv", "", "Select environment define in .gostman.env.yml and set it for the future request")
+	flag.BoolVar(&runtime.flagReset, "reset", false, "Reset .gostman.runtime.yml")
+	flag.BoolVar(&runtime.flagDebug, "debug", false, "Run gostman in debug mode")
+}
 
 const (
 	defaultEnv      = "no_env"
@@ -17,93 +25,111 @@ const (
 	runtimeFilename = ".gostman.runtime.yml"
 )
 
-type gostmanRuntime struct {
+type gmRuntime struct {
 	once sync.Once
-	g    map[string]*Gostman
+	m    *testing.M
 
 	flagEnv    string
 	flagSetenv string
 	flagReset  bool
 	flagDebug  bool
 
-	env     map[string]map[string]string
-	runtime struct {
+	cfgRuntimeFile *os.File
+
+	cfgEnv     map[string]map[string]string
+	cfgRuntime struct {
 		Env     string                       `yaml:"env"`
 		Initial map[string]map[string]string `yaml:"initial"`
 		Current map[string]map[string]string `yaml:"current"`
 	}
+
+	env     string
+	mu      sync.RWMutex
+	initial map[string]string // initial variable for the selected environment
+	current map[string]string // current variable for the selected environment
 }
 
-func init() {
-	flag.StringVar(&gostman.flagEnv, "env", "", "Select environment define in .gostman.env.yml")
-	flag.StringVar(&gostman.flagSetenv, "setenv", "", "Select environment define in .gostman.env.yml and set it for the future request")
-	flag.BoolVar(&gostman.flagReset, "reset", false, "Reset .gostman.runtime.yml")
-	flag.BoolVar(&gostman.flagDebug, "debug", false, "Run gostman in debug mode")
-}
+var runtime = new(gmRuntime)
 
-func (gr *gostmanRuntime) initOnce() {
-	gr.once.Do(func() {
-		// check debug mode
-		if gr.flagDebug {
-			log.SetLevel(log.DebugLevel)
+// Run run gostman runtime and the test. It returns an exit code to pass to os.Exit.
+// The runtime should be run in the TestMain before using Gostman.
+//
+//  func TestMain(m *testing.M) {
+// 	 os.Exit(gostman.Run(m))
+//  }
+func Run(m *testing.M) (code int) {
+	runtime.once.Do(func() {
+		if !flag.Parsed() {
+			flag.Parse()
 		}
 
-		// init runtime
-		if err := gostman.init(); err != nil {
+		if err := runtime.init(m); err != nil {
 			log.Fatal(err)
 		}
-
-		// check reset
-		if gr.flagReset {
-			gr.reset()
-			gr.populate()
-		}
-
-		// check env
-		env := gr.runtime.Env
-		if gr.flagSetenv != "" {
-			gr.runtime.Env = gr.flagSetenv
-			env = gr.flagSetenv
-		}
-		if gr.flagEnv != "" {
-			env = gr.flagEnv
-		}
-		log.Infof("using env %q", env)
 	})
+	defer runtime.close()
+
+	return runtime.m.Run()
 }
 
-func (gr *gostmanRuntime) init() error {
-	gostman.g = make(map[string]*Gostman)
+func (gmr *gmRuntime) init(m *testing.M) error {
+	// register *testing.M
+	gmr.m = m
 
-	if err := gr.loadEnv(); err != nil {
+	// check debug mode
+	if gmr.flagDebug {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	// load config env and runtime
+	if err := gmr.loadCfgEnv(); err != nil {
 		return err
 	}
-	if err := gr.loadRuntime(); err != nil {
+	if err := gmr.loadCfgRuntime(); err != nil {
 		return err
 	}
 
-	// TODO: move to testing cleanup
-	gr.cleanup()
+	// check reset
+	if gmr.flagReset {
+		gmr.reset()
+		gmr.populate()
+	}
+
+	// check env
+	gmr.env = gmr.cfgRuntime.Env
+	if gmr.flagSetenv != "" {
+		gmr.cfgRuntime.Env = gmr.flagSetenv
+		gmr.env = gmr.flagSetenv
+	}
+	if gmr.flagEnv != "" {
+		gmr.env = gmr.flagEnv
+	}
+	log.Infof("using env %q", gmr.env)
+
+	// set variable for the selected environment
+	gmr.initial = gmr.cfgRuntime.Initial[gmr.env]
+	gmr.current = gmr.cfgRuntime.Current[gmr.env]
 
 	return nil
 }
 
-func (gr *gostmanRuntime) loadEnv() error {
+func (gmr *gmRuntime) loadCfgEnv() error {
+	// init first
+	gmr.cfgEnv = make(map[string]map[string]string)
+
 	f, err := os.Open(envFilename)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			log.Debug(err)
-			gr.env = make(map[string]map[string]string)
 			return nil
 		}
 		return err
 	}
 	defer f.Close()
 
-	if err := yaml.NewDecoder(f).Decode(&gr.env); err != nil {
+	if err := yaml.NewDecoder(f).Decode(&gmr.cfgEnv); err != nil {
 		if errors.Is(err, io.EOF) {
 			log.Debug(err)
-			gr.env = make(map[string]map[string]string)
 			return nil
 		}
 		return err
@@ -112,90 +138,110 @@ func (gr *gostmanRuntime) loadEnv() error {
 	return nil
 }
 
-func (gr *gostmanRuntime) loadRuntime() error {
-	f, err := os.OpenFile(runtimeFilename, os.O_RDONLY|os.O_CREATE, 0755)
+func (gmr *gmRuntime) loadCfgRuntime() error {
+	// init first
+	gmr.reset()
+
+	f, err := os.OpenFile(runtimeFilename, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	gmr.cfgRuntimeFile = f
 
-	if err := yaml.NewDecoder(f).Decode(&gr.runtime); err != nil {
+	if err := yaml.NewDecoder(f).Decode(&gmr.cfgRuntime); err != nil {
+		// format error, debug it and continue populate the runtime
 		log.Debug(err)
 	}
+	gmr.populate()
 
-	gr.populate()
 	return nil
 }
 
-// reset resets runtime initial and current value
-func (gr *gostmanRuntime) reset() {
-	gr.runtime.Env = ""
-	gr.runtime.Initial = nil
-	gr.runtime.Current = nil
+func (gmr *gmRuntime) reset() {
+	gmr.cfgRuntime.Env = defaultEnv
+	gmr.cfgRuntime.Initial = make(map[string]map[string]string)
+	gmr.cfgRuntime.Current = make(map[string]map[string]string)
 }
 
-// populate populates runtime initial and current value using env
-func (gr *gostmanRuntime) populate() {
-	if gr.runtime.Env == "" {
-		gr.runtime.Env = defaultEnv
-	}
-	if gr.runtime.Initial == nil {
-		gr.runtime.Initial = make(map[string]map[string]string)
-	}
-	if gr.runtime.Current == nil {
-		gr.runtime.Current = make(map[string]map[string]string)
-	}
-
-	for env, values := range gr.env {
-		if _, ok := gr.runtime.Initial[env]; !ok {
-			gr.runtime.Initial[env] = make(map[string]string)
-			gr.runtime.Current[env] = make(map[string]string)
+func (gmr *gmRuntime) populate() {
+	for env, values := range gmr.cfgEnv {
+		if _, ok := gmr.cfgRuntime.Initial[env]; !ok {
+			gmr.cfgRuntime.Initial[env] = make(map[string]string)
+			gmr.cfgRuntime.Current[env] = make(map[string]string)
 		}
 
 		for k, v := range values {
-			if rv, ok := gr.runtime.Initial[env][k]; !ok || rv != v {
-				gr.runtime.Initial[env][k] = v
-				gr.runtime.Current[env][k] = v
+			if rv, ok := gmr.cfgRuntime.Initial[env][k]; !ok || rv != v {
+				gmr.cfgRuntime.Initial[env][k] = v
+				gmr.cfgRuntime.Current[env][k] = v
 			}
 		}
 	}
 
-	for env, values := range gr.runtime.Initial {
-		if _, ok := gr.runtime.Current[env]; !ok {
-			gr.runtime.Current[env] = make(map[string]string)
+	for env, values := range gmr.cfgRuntime.Initial {
+		if _, ok := gmr.cfgRuntime.Current[env]; !ok {
+			gmr.cfgRuntime.Current[env] = make(map[string]string)
 		}
 
 		for k, v := range values {
-			if _, ok := gr.runtime.Current[env][k]; !ok {
-				gr.runtime.Current[env][k] = v
+			if _, ok := gmr.cfgRuntime.Current[env][k]; !ok {
+				gmr.cfgRuntime.Current[env][k] = v
 			}
 		}
 	}
 
-	for env, values := range gr.runtime.Current {
-		if _, ok := gr.runtime.Initial[env]; !ok {
-			delete(gr.runtime.Current, env)
+	for env, values := range gmr.cfgRuntime.Current {
+		if _, ok := gmr.cfgRuntime.Initial[env]; !ok {
+			delete(gmr.cfgRuntime.Current, env)
 		}
 
 		for k := range values {
-			if _, ok := gr.runtime.Initial[env][k]; !ok {
-				delete(gr.runtime.Current[env], k)
+			if _, ok := gmr.cfgRuntime.Initial[env][k]; !ok {
+				delete(gmr.cfgRuntime.Current[env], k)
 			}
 		}
 	}
 }
 
-func (gr *gostmanRuntime) cleanup() {
-	f, err := os.OpenFile(runtimeFilename, os.O_WRONLY|os.O_TRUNC, 0755)
-	if err != nil {
-		log.Fatal(err)
+func (gmr *gmRuntime) close() {
+	f := gmr.cfgRuntimeFile
+	if f == nil {
+		return
 	}
 	defer f.Close()
+
+	f.Truncate(0)
+	f.Seek(0, 0)
 
 	enc := yaml.NewEncoder(f)
 	defer enc.Close()
 
-	if err := enc.Encode(gr.runtime); err != nil {
+	if err := enc.Encode(gmr.cfgRuntime); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func (gmr *gmRuntime) setEnvVar(name, val string) {
+	if runtime.initial == nil {
+		return
+	}
+
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+
+	if _, ok := runtime.initial[name]; !ok {
+		runtime.initial[name] = ""
+	}
+	runtime.current[name] = val
+}
+
+func (gmr *gmRuntime) envVar(name string) string {
+	if runtime.initial == nil {
+		return ""
+	}
+
+	runtime.mu.RLock()
+	defer runtime.mu.RUnlock()
+
+	return runtime.current[name]
 }
