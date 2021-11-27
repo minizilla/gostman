@@ -1,6 +1,6 @@
 # Gostman [![Go Reference](https://pkg.go.dev/badge/github.com/injustease/gostman.svg)](https://pkg.go.dev/github.com/injustease/gostman) [![ci](https://github.com/injustease/gostman/actions/workflows/ci.yml/badge.svg)](https://github.com/injustease/gostman/actions/workflows/ci.yml)
 
-Postman like inside [Go](https://golang.org/) testing.
+[Postman](https://www.postman.com/) like inside [Go](https://golang.org/) testing.
 
 ## Install
 
