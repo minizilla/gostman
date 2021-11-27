@@ -71,7 +71,7 @@ go test -run Request -setenv myenv # run request, use "myenv" environment and se
 
 ## The Runtime
 
-Gostman generate file `gostman.runtime.yml` to store runtime config and variable and change often after each request.
+Gostman generate file `.gostman.runtime.yml` to store runtime config and variable and change often after each request.
 It is **recommended** to ignore it in the `.gitignore`.
 
 ```gitignore
