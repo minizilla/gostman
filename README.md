@@ -1,13 +1,13 @@
 # gostman [![Go Reference](https://pkg.go.dev/badge/github.com/minizilla/gostman.svg)](https://pkg.go.dev/github.com/minizilla/gostman) [![main](https://github.com/minizilla/gostman/actions/workflows/main.yaml/badge.svg)](https://github.com/minizilla/gostman/actions/workflows/main.yaml)
 
-[Postman](https://www.postman.com/) like inside [Go](https://golang.org/) testing.
+[Postman](https://www.postman.com/) nuances in [Go](https://golang.org/) Test.
 
 ## Install
 
 Just import gostman to your test package.
 
 ```go
-import github.com/injustease/gostman
+import github.com/minizilla/gostman
 ```
 
 ## Usage
@@ -100,8 +100,8 @@ import (
     "os"
     "testing"
 
-    "github.com/injustease/is"
-    "github.com/injustease/gostman"
+    "github.com/minizilla/gostman"
+    "github.com/minizilla/testr"
 )
 
 func TestMain(m *testing.M) {
@@ -119,15 +119,15 @@ func TestRequest(t *testing.T) {
         r.Send(func(t *testing.T, req *http.Request, res *http.Response) {
             defer res.Body.Close()
 
-            is := is.New(t)
-            is.Equal(res.StatusCode, http.StatusOK)
+            assert := testr.New(t)
+            assert.Equal(res.StatusCode, http.StatusOK)
 
             var resp = struct {
                 Args map[string]string `json:"args"`
             }{}
             err := json.NewDecoder(res.Body).Decode(&resp)
-            is.NoError(err)
-            is.Equal(resp.Args["foo"], "bar")
+            assert.ErrorIs(err, nil)
+            assert.Equal(resp.Args["foo"], "bar")
         })
     })
 }

@@ -8,9 +8,6 @@ import (
 	"testing"
 )
 
-//go:embed VERSION
-var gostmanVersion string
-
 // Gostman represents an API development set.
 type Gostman struct {
 	t *testing.T
