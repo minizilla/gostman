@@ -1,10 +1,10 @@
-# Gostman [![Go Reference](https://pkg.go.dev/badge/github.com/injustease/gostman.svg)](https://pkg.go.dev/github.com/injustease/gostman) [![ci](https://github.com/injustease/gostman/actions/workflows/ci.yml/badge.svg)](https://github.com/injustease/gostman/actions/workflows/ci.yml)
+# gostman [![Go Reference](https://pkg.go.dev/badge/github.com/minizilla/gostman.svg)](https://pkg.go.dev/github.com/minizilla/gostman) [![main](https://github.com/minizilla/gostman/actions/workflows/main.yaml/badge.svg)](https://github.com/minizilla/gostman/actions/workflows/main.yaml)
 
 [Postman](https://www.postman.com/) like inside [Go](https://golang.org/) testing.
 
 ## Install
 
-Just import Gostman to your test package.
+Just import gostman to your test package.
 
 ```go
 import github.com/injustease/gostman
@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 }
 ```
 
-*Optional*. Create Gostman environment file `.gostman.env.yml` if using variable.
+*Optional*. Create gostman environment file `.gostman.env.yml` if using variable.
 
 ```yml
 myenv:
@@ -62,7 +62,7 @@ func TestRequest(t *testing.T) {
 Leverage `go test` command to run the above requests.
 
 ```sh
-go test # run all Gostman requests in the package
+go test # run all gostman requests in the package
 go test -run Request # run all collection in the TestRequest
 go test -run Request/AnotherRequest # run only AnotherRequest
 go test -run Request -env myenv # run request and use "myenv" environment

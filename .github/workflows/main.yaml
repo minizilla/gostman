@@ -1,0 +1,51 @@
+name: main
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+env:
+  CI_NIX_STORE: ~/nix
+  CI_NIX_FLAKE: .#default
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v20
+      - name: Cache Nix
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CI_NIX_STORE }}
+          key: ${{ runner.os }}-nix-${{ hashFiles('flake.nix', 'flake.lock') }}
+      - name: Cache Go
+        uses: actions/cache@v3
+        with:
+          key: ${{ runner.os }}-go-${{ hashfiles('go.mod', 'go.sum') }}
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+      - name: Test
+        run: |
+          nix --store ${{ env.CI_NIX_STORE }} \
+            develop ${{ env.CI_NIX_FLAKE }} --command \
+            go test -v -cover -race ./...
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Nix
+        uses: cachix/install-nix-action@v20
+      - name: Cache Nix
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CI_NIX_STORE }}
+          key: ${{ runner.os }}-nix-${{ hashFiles('flake.nix', 'flake.lock') }}
+      - name: Lint
+        run: |
+          nix --store ${{ env.CI_NIX_STORE }} \
+            develop ${{ env.CI_NIX_FLAKE }} --command \
+            editorconfig-checker && echo "ok"
