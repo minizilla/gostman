@@ -1,9 +1,9 @@
 // Package postman_test contains examples of gostman using Postman Echo.
 // The following list are comparison of hierarchy between gostman and gostman.
 //
-// 	- The package postman_test is equal to collection in the postman
-// 	- All tests in the form of TextXxx equal to folder in the postman (gostman doesn't support recursive folder)
-// 	- Request itself is running in the subtests
+//   - The package postman_test is equal to collection in the postman
+//   - All tests in the form of TextXxx equal to folder in the postman (gostman doesn't support recursive folder)
+//   - Request itself is running in the subtests
 package postman_test
 
 import (
@@ -13,8 +13,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/injustease/gostman"
-	"github.com/injustease/is"
+	"github.com/minizilla/gostman"
+	"github.com/minizilla/testr"
 )
 
 type postmanResponse struct {
@@ -31,6 +31,10 @@ func TestMain(m *testing.M) {
 // TestRequest tests request to postman-echo.
 // go test -run Request
 func TestRequest(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
 	gm := gostman.New(t)
 
 	// go test -run Request/Params
@@ -43,14 +47,14 @@ func TestRequest(t *testing.T) {
 		r.Send(func(t *testing.T, req *http.Request, res *http.Response) {
 			defer res.Body.Close()
 
-			is := is.New(t)
-			is.Equal(res.StatusCode, http.StatusOK)
+			assert := testr.New(t)
+			assert.Equal(res.StatusCode, http.StatusOK)
 
 			var resp postmanResponse
 			err := json.NewDecoder(res.Body).Decode(&resp)
-			is.NoError(err)
-			is.Equal(resp.Args["foo1"], "bar1")
-			is.Equal(resp.Args["foo2"], "bar2")
+			assert.ErrorIs(err, nil)
+			assert.Equal(resp.Args["foo1"], "bar1")
+			assert.Equal(resp.Args["foo2"], "bar2")
 		})
 	})
 
@@ -64,13 +68,13 @@ func TestRequest(t *testing.T) {
 		r.Send(func(t *testing.T, req *http.Request, res *http.Response) {
 			defer res.Body.Close()
 
-			is := is.New(t)
-			is.Equal(res.StatusCode, http.StatusOK)
+			assert := testr.New(t)
+			assert.Equal(res.StatusCode, http.StatusOK)
 
 			var resp postmanResponse
 			err := json.NewDecoder(res.Body).Decode(&resp)
-			is.NoError(err)
-			is.True(resp.Authenticated)
+			assert.ErrorIs(err, nil)
+			assert.Equal(resp.Authenticated, true)
 		})
 	})
 
@@ -84,14 +88,14 @@ func TestRequest(t *testing.T) {
 		r.Send(func(t *testing.T, req *http.Request, res *http.Response) {
 			defer res.Body.Close()
 
-			is := is.New(t)
-			is.Equal(res.StatusCode, http.StatusOK)
+			assert := testr.New(t)
+			assert.Equal(res.StatusCode, http.StatusOK)
 
 			var resp postmanResponse
 			err := json.NewDecoder(res.Body).Decode(&resp)
-			is.NoError(err)
-			is.Equal(resp.Headers["foo1"], "bar1")
-			is.Equal(resp.Headers["foo2"], "bar2")
+			assert.ErrorIs(err, nil)
+			assert.Equal(resp.Headers["foo1"], "bar1")
+			assert.Equal(resp.Headers["foo2"], "bar2")
 		})
 	})
 
@@ -104,22 +108,26 @@ func TestRequest(t *testing.T) {
 		r.Send(func(t *testing.T, req *http.Request, res *http.Response) {
 			defer res.Body.Close()
 
-			is := is.New(t)
-			is.Equal(res.StatusCode, http.StatusOK)
+			assert := testr.New(t)
+			assert.Equal(res.StatusCode, http.StatusOK)
 
 			var resp postmanResponse
 			err := json.NewDecoder(res.Body).Decode(&resp)
-			is.NoError(err)
-			is.Equal(resp.Data, text)
+			assert.ErrorIs(err, nil)
+			assert.Equal(resp.Data, text)
 		})
 	})
 }
 
 // TestVariable tests request to postman-echo with variable.
 //
-//  Set env: go test -run Variable -env postman
-//  Set env for the future request too: go test -run Variable -setenv postman
+//	Set env: go test -run Variable -env postman
+//	Set env for the future request too: go test -run Variable -setenv postman
 func TestVariable(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
+
 	gm := gostman.New(t)
 
 	// go test -run Variable/Authorization -env postman
@@ -132,13 +140,13 @@ func TestVariable(t *testing.T) {
 		r.Send(func(t *testing.T, req *http.Request, res *http.Response) {
 			defer res.Body.Close()
 
-			is := is.New(t)
-			is.Equal(res.StatusCode, http.StatusOK)
+			assert := testr.New(t)
+			assert.Equal(res.StatusCode, http.StatusOK)
 
 			var resp postmanResponse
 			err := json.NewDecoder(res.Body).Decode(&resp)
-			is.NoError(err)
-			is.True(resp.Authenticated)
+			assert.ErrorIs(err, nil)
+			assert.Equal(resp.Authenticated, true)
 		})
 	})
 }
